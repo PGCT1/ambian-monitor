@@ -1,0 +1,42 @@
+<html>
+	<head>
+
+	</head>
+	<body>
+
+	<ul id="log">
+
+	</ul>
+
+
+	<script>
+
+	(function(){
+
+		var websocket = new WebSocket('ws://localhost:3000/json');
+
+		websocket.onopen = function(){
+			document.getElementById('log').innerHTML += 'connected!<br>';
+
+			websocket.send(JSON.stringify({Password:'valid'}));
+
+		};
+
+		websocket.onmessage = function(raw){
+			document.getElementById('log').innerHTML += raw.data + '<br>';
+		};
+
+		websocket.onerror = function(e){
+			document.getElementById('log').innerHTML += '<span style="color:red;">' + JSON.stringify(e) + '</span><br>';
+		}
+
+		websocket.onclose = function(){
+			document.getElementById('log').innerHTML += '<span style="color:red;">connection closed!</span><br>';
+		};
+
+	})();
+
+	</script>
+
+	</body>
+</html>
