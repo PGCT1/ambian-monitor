@@ -4,9 +4,9 @@
 	</head>
 	<body>
 
-	<ul id="log">
+	<div id="log">
 
-	</ul>
+	</div>
 
 
 	<script>
@@ -18,7 +18,17 @@
 		websocket.onopen = function(){
 			document.getElementById('log').innerHTML += 'connected!<br>';
 
-			websocket.send(JSON.stringify({Password:'valid'}));
+			websocket.send(JSON.stringify({
+				Password:'your_password',
+				DesiredStreams:{
+					Feeds:{
+						WorldNews:true
+					},
+					Sources:{
+						Corporate:true
+					}
+				}
+			}));
 
 		};
 

@@ -72,7 +72,7 @@ func websocketConnectionHandler(ws *websocket.Conn) {
   select {
 
     case pw := <- password:
-      if pw == "valid" {
+      if pw == SubscriptionPassword {
         authorized = true
       }
 
@@ -147,14 +147,7 @@ func InitializeConnectionManager(){
 
 func monitorDataSources(DataStream chan NotificationPacket){
 
-	greeting := NotificationPacket{Type:"greeting",Content:"Hi"}
-
-	for{
-		select {
-			case <- time.After(1*time.Second):
-				DataStream <- greeting
-		}
-	}
+	go TwitterStream(DataStream)
 
 }
 
@@ -187,8 +180,28 @@ func channelManager(DataStream chan NotificationPacket){
 			case notification := <- DataStream:
 
 				for _,channel := range BroadcastChannels {
+
+					// make sure this channel actually has a listener
+
 					if channel.Active{
-						channel.Channel <- notification
+
+						// make sure this notification is from a desired feed
+
+						if (channel.MetaData.Feeds.WorldNews == true && notification.MetaData.Feeds.WorldNews == true) || 
+						   (channel.MetaData.Feeds.SocialEntertainment == true && notification.MetaData.Feeds.SocialEntertainment == true){
+
+						  // make sure this notification is from a desired source
+
+						  if (channel.MetaData.Sources.Corporate == true &&  notification.MetaData.Sources.Corporate == true) || 
+						     (channel.MetaData.Sources.SocialMedia == true &&  notification.MetaData.Sources.SocialMedia == true) || 
+						     (channel.MetaData.Sources.Aggregate == true &&  notification.MetaData.Sources.Aggregate == true){
+
+								channel.Channel <- notification
+
+							}
+
+						}
+
 					}
 
 				}

@@ -18,10 +18,15 @@ type NotificationMetaData struct {
 	Sources Sources
 }
 
+const (
+	cNotificationTypeDefault = iota
+	cNotificationTypeOther = iota
+)
+
 // packets
 
 type NotificationPacket struct {
-	Type string
+	Type int
 	Content string
 	MetaData NotificationMetaData
 }
