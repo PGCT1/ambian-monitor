@@ -6,24 +6,37 @@ import(
   "time"
  )
 
-// packets
+/*
+
+	Flow: 
+		1. A new connection C is received and handled by websocketConnectionHandler
+		2. C must provide an AuthorizationPacket immediately
+			if C doesn't or the metadata is invalid
+				close C
+			if yes
+				acquire a new broadcastChannel from AvailableChannels or from the BroadcastSecretary if none are available
+				set the broadcastChannel to the AuthorizationPacket.DesiredStreams
+				listen to the broadcastChannel and push anything that flows in over the websocket
+
+*/
 
 type AuthorizationPacket struct {
-	Password  string
-}
-
-type NotificationPacket struct {
-	Type string
-	Content string
+	Password string
+	DesiredStreams NotificationMetaData
 }
 
 type BroadcastChannel struct{
 	Channel chan NotificationPacket
 	Active bool
+	MetaData NotificationMetaData
 }
+
+// Global channels
 
 var AvailableChannels chan *BroadcastChannel
 var BroadcastSecretary chan bool
+
+// Websocket connection handler
 
 func websocketConnectionHandler(ws *websocket.Conn) {
 
@@ -32,6 +45,7 @@ func websocketConnectionHandler(ws *websocket.Conn) {
   // they should send a password immediately; if they don't, close the connection
 
   authorized := false
+  var DesiredMetaData NotificationMetaData
 
   password := func () chan string{
 
@@ -44,6 +58,9 @@ func websocketConnectionHandler(ws *websocket.Conn) {
       err := websocket.JSON.Receive(ws, &authResponse)
 
       if err == nil {
+
+      	DesiredMetaData = authResponse.DesiredStreams
+
         channel <- authResponse.Password
       }
 
@@ -82,6 +99,11 @@ func websocketConnectionHandler(ws *websocket.Conn) {
 	  }
 
     NotificationChannel := broadcastChannel.Channel
+
+    broadcastChannel.MetaData = DesiredMetaData
+
+    fmt.Println(broadcastChannel.MetaData)
+
     broadcastChannel.Active = true
 
     L: for {
@@ -109,44 +131,72 @@ func websocketConnectionHandler(ws *websocket.Conn) {
 
 }
 
+// init
+
 func InitializeConnectionManager(){
+
+	DataStream := make(chan NotificationPacket)
+
+	go monitorDataSources(DataStream)
+
+	go channelManager(DataStream)
+
+}
+
+// pushes data to the channel each time it has a new notification from a source
+
+func monitorDataSources(DataStream chan NotificationPacket){
 
 	greeting := NotificationPacket{Type:"greeting",Content:"Hi"}
 
-	go func(){
+	for{
+		select {
+			case <- time.After(1*time.Second):
+				DataStream <- greeting
+		}
+	}
 
-		AvailableChannels = make(chan *BroadcastChannel)
-		BroadcastSecretary = make(chan bool)
+}
 
-		BroadcastChannels := make([]BroadcastChannel,0)
+// handles adding / removing channels, broadcasting notifications from the DataStream
 
-		for{
-			
-			select{
+func channelManager(DataStream chan NotificationPacket){
 
-				case <- BroadcastSecretary:
+	defaultFeeds := Feeds{WorldNews:true,SocialEntertainment:true}
+	defaultSources := Sources{Corporate:true,SocialMedia:true,Aggregate:true}
 
-					// someone is waiting for a channel, and none are available, so make a new one for them
+	DefaultSubscription := NotificationMetaData{defaultFeeds,defaultSources}
 
-					BroadcastChannels = append(BroadcastChannels,BroadcastChannel{make(chan NotificationPacket),false})
+	AvailableChannels = make(chan *BroadcastChannel)
+	BroadcastSecretary = make(chan bool)
 
-					AvailableChannels <- &(BroadcastChannels[len(BroadcastChannels) - 1])
+	BroadcastChannels := make([]BroadcastChannel,0)
 
-				case <- time.After(1*time.Second):
+	for{
+		
+		select{
 
-					for _,channel := range BroadcastChannels {
-						if channel.Active{
-							channel.Channel <- greeting
-						}
+			case <- BroadcastSecretary:
 
+				// someone is waiting for a channel, and none are available, so make a new one for them
+
+				BroadcastChannels = append(BroadcastChannels,BroadcastChannel{make(chan NotificationPacket),false,DefaultSubscription})
+
+				AvailableChannels <- &(BroadcastChannels[len(BroadcastChannels) - 1])
+
+			case notification := <- DataStream:
+
+				for _,channel := range BroadcastChannels {
+					if channel.Active{
+						channel.Channel <- notification
 					}
 
-					// TODO: delete unused channels after heavy traffic calms down
+				}
 
-			}
+				// TODO: delete unused channels after heavy traffic calms down
 
 		}
 
-	}()
+	}
 
 }
