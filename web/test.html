@@ -21,11 +21,10 @@
 			websocket.send(JSON.stringify({
 				Password:'your_password',
 				DesiredStreams:{
-					Feeds:{
-						WorldNews:true
-					},
+					AmbianStreamIds:[1,2],
 					Sources:{
-						Corporate:true
+						Corporate:true,
+						SocialMedia:true
 					}
 				}
 			}));

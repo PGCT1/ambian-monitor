@@ -5,7 +5,25 @@ import (
   "github.com/go-martini/martini"
 )
 
+// globals
+
+var AmbianStreams []AmbianStream	// active streams (world news, social & entertainment, etc.)
+
 func main() {
+
+	// just hardcode some database entries for now
+
+	CreateAmbianStream(AmbianStream{
+		Name:"World News",
+		TwitterKeywords:[]string{"obama","putin","snowden","russia","benghazi","isil","merkel","kerry","clinton","brussels","moscow","washington"},
+	})
+
+	CreateAmbianStream(AmbianStream{
+		Name:"Social & Entertainment",
+		TwitterKeywords:[]string{"funny","til"},
+	})
+
+	AmbianStreams,_ = GetAmbianStreams()
 
   InitializeConnectionManager()
 

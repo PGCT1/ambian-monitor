@@ -2,11 +2,6 @@ package main
 
 // meta
 
-type Feeds struct {
-	WorldNews bool
-	SocialEntertainment bool
-}
-
 type Sources struct {
 	Corporate bool
 	SocialMedia bool
@@ -14,13 +9,13 @@ type Sources struct {
 }
 
 type NotificationMetaData struct {
-	Feeds Feeds
+	AmbianStreamIds []int
 	Sources Sources
 }
 
 const (
 	cNotificationTypeDefault = iota
-	cNotificationTypeOther = iota
+	cNotificationTypeTweet = iota
 )
 
 // packets

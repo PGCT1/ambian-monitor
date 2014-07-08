@@ -8,14 +8,13 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"math/rand"
 	"encoding/json"
 )
 
 // terms
 
-const search = "obama"
 var keywords []string
+var corporateSources []string
 
 // access keys
 
@@ -33,22 +32,45 @@ type Tweet struct{
 	Id string
 	UserId string
 	Username string
+	Screenname string
 	UserImageUrl string
 	Followers int
 	Text string
 	Hashtags []string
 }
 
+// http stream
+
+var httpStreamClient* httpstream.Client
+
 func TwitterStream(DataStream chan NotificationPacket){
 
-	keywords := []string{"obama","putin"}
+	// set corporate sources (why can't this just be a const declaration at the top... *sigh*)
+
+	corporateSources = []string{"bbc","bbcworld","bbcone","bbcnew","bbcbreaking","washingtonpost","reutersworld","reuters","ajelive","ajenglish","guardian","guardiannews","nytimes","rt_com","theonion","cracked","techcrunch","verge","thenextweb"}
+
+	// update our keyword list with the latest words from the global AmbianStreams
+
+	keywords = make([]string,100)
+
+	for _,stream := range AmbianStreams {
+
+		for _,keyword := range stream.TwitterKeywords {
+
+			keywords = append(keywords,keyword)
+
+		}
+
+	}
 
 	rawStream := make(chan []byte)
 
 	go startTwitterApiStream(rawStream,keywords)
 
 	for{
+
 		select{
+
 			case rawTweetData := <- rawStream:
 				tweet,err := parseTweet(rawTweetData)
 				notification,err := TweetNotification(tweet)
@@ -58,25 +80,82 @@ func TwitterStream(DataStream chan NotificationPacket){
 				}
 
 		}
+
 	}
 
 }
 
-// analyze the tweet and construct (if desirable) a notification from it
+func StopTwitterStream(){
+
+	httpStreamClient.Close()
+
+}
+
+// analyze the tweet and construct a notification from it
+
+type TweetNotificationError struct{
+	Message string
+}
+
+func (e TweetNotificationError) Error() string {
+	return e.Message
+}
 
 func TweetNotification(tweet Tweet) (NotificationPacket,error){
 
-	feeds := Feeds{WorldNews:rand.Intn(2) != 0,SocialEntertainment:rand.Intn(2) != 0}
-	sources := Sources{Corporate:rand.Intn(2) != 0,SocialMedia:rand.Intn(2) != 0,Aggregate:rand.Intn(2) != 0}
+	// determine which streams to assign this notification to
 
-	metaData := NotificationMetaData{feeds,sources}
+	AmbianStreamIds := make([]int,len(AmbianStreams))
+
+	for _,stream := range AmbianStreams {
+
+		// check for keyword matches
+
+		keywordSearch: for _,keyword := range stream.TwitterKeywords {
+
+			for _,hashtag := range tweet.Hashtags {
+
+				if keyword == hashtag {
+					AmbianStreamIds = append(AmbianStreamIds,stream.Id)
+					break keywordSearch
+				}
+
+			}
+
+			if strings.Contains(tweet.Text, keyword) {
+				AmbianStreamIds = append(AmbianStreamIds,stream.Id)
+				break keywordSearch
+			}
+
+		}
+
+	}
+
+	// determine if this is a corporate source or not
+
+	isCorporateSource := false
+
+	screenname := strings.ToLower(tweet.Screenname)
+
+	determinedCorporateStatus: for _,corporateSource := range corporateSources {
+
+		if screenname == corporateSource {
+			isCorporateSource = true
+			break determinedCorporateStatus
+		}
+
+	}
+
+	sources := Sources{Corporate:isCorporateSource,SocialMedia:true,Aggregate:false}
+
+	metaData := NotificationMetaData{AmbianStreamIds,sources}
 
 	jsonTweet,err := json.Marshal(tweet)
 
 	var notification NotificationPacket
 
 	if err == nil {
-		notification = NotificationPacket{cNotificationTypeDefault,string(jsonTweet),metaData}
+		notification = NotificationPacket{cNotificationTypeTweet,string(jsonTweet),metaData}
 	}
 
 	return notification,err
@@ -96,6 +175,7 @@ type rawTweetEntities struct {
 type rawTweetUser struct {
 	Id_str string
 	Name string
+	Screen_name string
 	Followers_count int
 	Profile_image_url string
 }
@@ -119,6 +199,7 @@ func parseTweet(tw []byte) (Tweet,error) {
 		tweet.Id = rawTweet.Id_str
 		tweet.UserId = rawTweet.User.Id_str
 		tweet.Username = rawTweet.User.Name
+		tweet.Screenname = rawTweet.User.Screen_name
 		tweet.UserImageUrl = rawTweet.User.Profile_image_url
 		tweet.Followers = rawTweet.User.Followers_count
 		tweet.Text = rawTweet.Text
@@ -156,7 +237,7 @@ func startTwitterApiStream(output chan []byte, keywords []string){
 		Secret: accessTokenSecret,
 	}
 
-	client := httpstream.NewOAuthClient(&at, httpstream.OnlyTweetsFilter(func(line []byte) {
+	httpStreamClient = httpstream.NewOAuthClient(&at, httpstream.OnlyTweetsFilter(func(line []byte) {
 		stream <- line
 	}))
 
@@ -170,7 +251,7 @@ func startTwitterApiStream(output chan []byte, keywords []string){
 		}
 	}
 
-	err := client.Filter(userIds, keywords, []string{"en"}, nil, false, done)
+	err := httpStreamClient.Filter(userIds, keywords, []string{"en"}, nil, false, done)
 
 	if err != nil {
 		httpstream.Log(httpstream.ERROR, err.Error())

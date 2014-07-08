@@ -155,7 +155,7 @@ func monitorDataSources(DataStream chan NotificationPacket){
 
 func channelManager(DataStream chan NotificationPacket){
 
-	defaultFeeds := Feeds{WorldNews:true,SocialEntertainment:true}
+	defaultFeeds := []int{1,2}
 	defaultSources := Sources{Corporate:true,SocialMedia:true,Aggregate:true}
 
 	DefaultSubscription := NotificationMetaData{defaultFeeds,defaultSources}
@@ -187,8 +187,18 @@ func channelManager(DataStream chan NotificationPacket){
 
 						// make sure this notification is from a desired feed
 
-						if (channel.MetaData.Feeds.WorldNews == true && notification.MetaData.Feeds.WorldNews == true) || 
-						   (channel.MetaData.Feeds.SocialEntertainment == true && notification.MetaData.Feeds.SocialEntertainment == true){
+						notificationIsFromDesiredFeed := false
+
+						found: for _,desiredFeed := range channel.MetaData.AmbianStreamIds {
+							for _,targetedFeed := range notification.MetaData.AmbianStreamIds{
+								if desiredFeed == targetedFeed {
+									notificationIsFromDesiredFeed = true
+									break found
+								}
+							}
+						}
+
+						if (notificationIsFromDesiredFeed){
 
 						  // make sure this notification is from a desired source
 
