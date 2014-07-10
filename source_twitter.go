@@ -51,7 +51,7 @@ func TwitterStream(DataStream chan NotificationPacket){
 
 	// update our keyword list with the latest words from the global AmbianStreams
 
-	keywords = make([]string,100)
+	keywords = make([]string,0,100)
 
 	for _,stream := range AmbianStreams {
 
@@ -103,9 +103,18 @@ func (e TweetNotificationError) Error() string {
 
 func TweetNotification(tweet Tweet) (NotificationPacket,error){
 
+	var notification NotificationPacket
+
+	if tweet.Followers < 2000 {
+		fmt.Println("-")
+		return notification,TweetNotificationError{"Uninteresting"}
+	}else{
+		fmt.Println("  +")
+	}
+
 	// determine which streams to assign this notification to
 
-	AmbianStreamIds := make([]int,len(AmbianStreams))
+	AmbianStreamIds := make([]int,0,len(AmbianStreams))
 
 	for _,stream := range AmbianStreams {
 
@@ -122,7 +131,9 @@ func TweetNotification(tweet Tweet) (NotificationPacket,error){
 
 			}
 
-			if strings.Contains(tweet.Text, keyword) {
+			text := strings.ToLower(tweet.Text)
+
+			if strings.Contains(text, keyword) {
 				AmbianStreamIds = append(AmbianStreamIds,stream.Id)
 				break keywordSearch
 			}
@@ -130,6 +141,8 @@ func TweetNotification(tweet Tweet) (NotificationPacket,error){
 		}
 
 	}
+
+	fmt.Println(len(AmbianStreamIds))
 
 	// determine if this is a corporate source or not
 
@@ -151,8 +164,6 @@ func TweetNotification(tweet Tweet) (NotificationPacket,error){
 	metaData := NotificationMetaData{AmbianStreamIds,sources}
 
 	jsonTweet,err := json.Marshal(tweet)
-
-	var notification NotificationPacket
 
 	if err == nil {
 		notification = NotificationPacket{cNotificationTypeTweet,string(jsonTweet),metaData}
@@ -220,7 +231,7 @@ func startTwitterApiStream(output chan []byte, keywords []string){
 
 	httpstream.SetLogger(log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile), logLevel)
 
-	stream := make(chan []byte, 1000)
+	stream := make(chan []byte, 2000)
 	done := make(chan bool)
 
 	httpstream.OauthCon = oauth.NewConsumer(

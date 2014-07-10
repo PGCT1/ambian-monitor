@@ -1,9 +1,10 @@
 package main
 
 import(
-	"code.google.com/p/go.net/websocket"
+	"github.com/gorilla/websocket"
   "fmt"
   "time"
+  "encoding/json"
  )
 
 /*
@@ -55,7 +56,13 @@ func websocketConnectionHandler(ws *websocket.Conn) {
 
       var authResponse AuthorizationPacket
 
-      err := websocket.JSON.Receive(ws, &authResponse)
+      _, message, err := ws.ReadMessage()
+
+      if err == nil {
+      	err = json.Unmarshal(message,&authResponse)
+      }
+
+      //err := websocket.JSON.Receive(ws, &authResponse)
 
       if err == nil {
 
@@ -102,8 +109,6 @@ func websocketConnectionHandler(ws *websocket.Conn) {
 
     broadcastChannel.MetaData = DesiredMetaData
 
-    fmt.Println(broadcastChannel.MetaData)
-
     broadcastChannel.Active = true
 
     L: for {
@@ -111,7 +116,13 @@ func websocketConnectionHandler(ws *websocket.Conn) {
     	select{
 
     		case notification := <- NotificationChannel:
-    			err := websocket.JSON.Send(ws,notification)
+
+					raw, err := json.Marshal(notification)
+
+					if err == nil {
+	    			err = ws.WriteMessage(websocket.TextMessage,raw)
+					}
+
     			if err != nil {
     				break L
     			}

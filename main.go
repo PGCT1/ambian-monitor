@@ -1,8 +1,10 @@
 package main
 
 import (
-  "code.google.com/p/go.net/websocket"
+  "github.com/gorilla/websocket"
   "github.com/go-martini/martini"
+  "github.com/martini-contrib/cors"
+  "net/http"
 )
 
 // globals
@@ -20,7 +22,7 @@ func main() {
 
 	CreateAmbianStream(AmbianStream{
 		Name:"Social & Entertainment",
-		TwitterKeywords:[]string{"funny","til"},
+		TwitterKeywords:[]string{"harhar"},
 	})
 
 	AmbianStreams,_ = GetAmbianStreams()
@@ -29,7 +31,29 @@ func main() {
 
   martiniServerSetup := martini.Classic()
 
-  martiniServerSetup.Get("/json", websocket.Handler(websocketConnectionHandler).ServeHTTP)
+	martiniServerSetup.Use(cors.Allow(&cors.Options{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET"},
+		AllowHeaders:     []string{"Origin"},
+		AllowCredentials: true,
+	}))
+
+	martiniServerSetup.Get("/json", func(w http.ResponseWriter, r *http.Request) {
+
+		ws, err := websocket.Upgrade(w, r, nil, 1024, 1024)
+
+		if _, ok := err.(websocket.HandshakeError); ok {
+
+			http.Error(w, "Invalid websocket handshake", 400)
+
+			return
+		} else if err != nil {
+			return
+		}
+
+		websocketConnectionHandler(ws)
+
+	})
 
   martiniServerSetup.Use(martini.Static("web"))
 
