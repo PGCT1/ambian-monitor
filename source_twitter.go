@@ -275,4 +275,6 @@ func startTwitterApiStream(output chan []byte, keywords []string){
 		}()
 		_ = <-done
 	}
+
+	fmt.Println("TWEET STREAM STOPPED")
 }

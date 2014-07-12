@@ -41,8 +41,6 @@ var BroadcastSecretary chan bool
 
 func websocketConnectionHandler(ws *websocket.Conn) {
 
-  defer ws.Close()
-
   // they should send a password immediately; if they don't, close the connection
 
   authorized := false
@@ -88,55 +86,72 @@ func websocketConnectionHandler(ws *websocket.Conn) {
   }
 
   if !authorized {
-    ws.Close()
+  	ws.Close()
   }else{
 
-    // this connection is now authorized, so add a channel for it and listen
+  	go func(){
 
-    var broadcastChannel* BroadcastChannel
+  		defer ws.Close()
 
-    // acquire an available channel; if we don't get one immediately, request a new BroadcastChannel
-    // from the BroadcastSecretary
+  		// this connection is now authorized, so add a channel for it and listen
 
-    select{
-	  	case broadcastChannel = <- AvailableChannels:
-	  	case <- time.After(1*time.Second):
-	  		BroadcastSecretary <- true
-	  		broadcastChannel = <- AvailableChannels
-	  }
+	    var broadcastChannel* BroadcastChannel
 
-    NotificationChannel := broadcastChannel.Channel
+	    // acquire an available channel; if we don't get one immediately, request a new BroadcastChannel
+	    // from the BroadcastSecretary
 
-    broadcastChannel.MetaData = DesiredMetaData
+	    select{
+		  	case broadcastChannel = <- AvailableChannels:
+		  	case <- time.After(1*time.Second):
+		  		BroadcastSecretary <- true
+		  		broadcastChannel = <- AvailableChannels
+		  }
 
-    broadcastChannel.Active = true
+	    NotificationChannel := broadcastChannel.Channel
 
-    L: for {
+	    broadcastChannel.MetaData = DesiredMetaData
 
-    	select{
+	    broadcastChannel.Active = true
 
-    		case notification := <- NotificationChannel:
+	    L: for {
 
-					raw, err := json.Marshal(notification)
+	    	select{
 
-					if err == nil {
-	    			err = ws.WriteMessage(websocket.TextMessage,raw)
-					}
+	    		case notification := <- NotificationChannel:
 
-    			if err != nil {
-    				break L
-    			}
+						ws.SetWriteDeadline(time.Now().Add(2 * time.Second))
+	    			err := ws.WriteJSON(notification)
 
-    	}
+	    			if err != nil {
+	    				break L
+	    			}
 
-    }
+	    	}
 
-    // this connection is closed, so set the channel to inactive and make it available to
-    // whoever else wants to use it
+	    }
 
-    broadcastChannel.Active = false
+	    // this connection is closed, so set the channel to inactive and make it available to
+	    // whoever else wants to use it
 
-    AvailableChannels <- broadcastChannel
+	    broadcastChannel.Active = false
+
+	    // clean up the channel before releasing it
+
+	    FinishedCleaning: for {
+
+	    	select{
+
+	    		case <- NotificationChannel:
+	    		case <- time.After(1*time.Second):
+	    			break FinishedCleaning
+
+	    	}
+
+	    }
+	    
+	    AvailableChannels <- broadcastChannel
+
+	  }()
 
   }
 
@@ -174,7 +189,7 @@ func channelManager(DataStream chan NotificationPacket){
 	AvailableChannels = make(chan *BroadcastChannel)
 	BroadcastSecretary = make(chan bool)
 
-	BroadcastChannels := make([]BroadcastChannel,0)
+	BroadcastChannels := make([]*BroadcastChannel,0)
 
 	for{
 		
@@ -184,9 +199,11 @@ func channelManager(DataStream chan NotificationPacket){
 
 				// someone is waiting for a channel, and none are available, so make a new one for them
 
-				BroadcastChannels = append(BroadcastChannels,BroadcastChannel{make(chan NotificationPacket),false,DefaultSubscription})
+				newChannel := BroadcastChannel{make(chan NotificationPacket),false,DefaultSubscription}
 
-				AvailableChannels <- &(BroadcastChannels[len(BroadcastChannels) - 1])
+				BroadcastChannels = append(BroadcastChannels,&newChannel)
+
+				AvailableChannels <- &newChannel
 
 			case notification := <- DataStream:
 
@@ -194,7 +211,7 @@ func channelManager(DataStream chan NotificationPacket){
 
 					// make sure this channel actually has a listener
 
-					if channel.Active{
+					if channel.Active == true {
 
 						// make sure this notification is from a desired feed
 
@@ -228,6 +245,8 @@ func channelManager(DataStream chan NotificationPacket){
 				}
 
 				// TODO: delete unused channels after heavy traffic calms down
+
+			case <- AvailableChannels:
 
 		}
 
