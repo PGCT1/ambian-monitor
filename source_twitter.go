@@ -153,8 +153,6 @@ func TweetNotification(tweet Tweet) (NotificationPacket,error){
 
 	}
 
-	fmt.Println(len(AmbianStreamIds))
-
 	// determine if this is a corporate source or not
 
 	isCorporateSource := false
