@@ -28,6 +28,12 @@ const accessTokenSecret = TwitterAccessTokenSecret
 const logLevel = "warn"
 const users = ""
 
+type TweetMedia struct{
+	Id string
+	Url string
+	Type string
+}
+
 type Tweet struct{
 	Id string
 	UserId string
@@ -37,6 +43,7 @@ type Tweet struct{
 	Followers int
 	Text string
 	Hashtags []string
+	Media []TweetMedia
 }
 
 // http stream
@@ -73,10 +80,17 @@ func TwitterStream(DataStream chan NotificationPacket){
 
 			case rawTweetData := <- rawStream:
 				tweet,err := parseTweet(rawTweetData)
-				notification,err := TweetNotification(tweet)
 
 				if err == nil {
-					DataStream <- notification
+
+					notification,err := TweetNotification(tweet)
+
+					fmt.Println(notification)
+
+					if err == nil {
+						DataStream <- notification
+					}
+
 				}
 
 		}
@@ -106,10 +120,7 @@ func TweetNotification(tweet Tweet) (NotificationPacket,error){
 	var notification NotificationPacket
 
 	if tweet.Followers < 2000 {
-		fmt.Println("-")
 		return notification,TweetNotificationError{"Uninteresting"}
-	}else{
-		fmt.Println("  +")
 	}
 
 	// determine which streams to assign this notification to
@@ -179,8 +190,15 @@ type rawTweetEntityHashtag struct {
 	Text string
 }
 
+type rawTweetEntityMedia struct {
+	Id_str string
+	Media_url string
+	Type string
+}
+
 type rawTweetEntities struct {
 	Hashtags []rawTweetEntityHashtag
+	Media []rawTweetEntityMedia
 }
 
 type rawTweetUser struct {
@@ -217,6 +235,14 @@ func parseTweet(tw []byte) (Tweet,error) {
 
 		for i:=0;i<len(rawTweet.Entities.Hashtags);i++ {
 			tweet.Hashtags = append(tweet.Hashtags,rawTweet.Entities.Hashtags[i].Text)
+		}
+
+		for i:=0;i<len(rawTweet.Entities.Media);i++ {
+			tweet.Media = append(tweet.Media,TweetMedia{
+				Id:rawTweet.Entities.Media[i].Id_str,
+				Url:rawTweet.Entities.Media[i].Media_url,
+				Type:rawTweet.Entities.Media[i].Type,
+			})
 		}
 
 	}else{

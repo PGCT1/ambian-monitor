@@ -9,7 +9,7 @@ import(
 
 /*
 
-	Flow: 
+	Flow:
 		1. A new connection C is received and handled by websocketConnectionHandler
 		2. C must provide an AuthorizationPacket immediately
 			if C doesn't or the metadata is invalid
@@ -148,7 +148,7 @@ func websocketConnectionHandler(ws *websocket.Conn) {
 	    	}
 
 	    }
-	    
+
 	    AvailableChannels <- broadcastChannel
 
 	  }()
@@ -192,7 +192,7 @@ func channelManager(DataStream chan NotificationPacket){
 	BroadcastChannels := make([]*BroadcastChannel,0)
 
 	for{
-		
+
 		select{
 
 			case <- BroadcastSecretary:
@@ -230,8 +230,8 @@ func channelManager(DataStream chan NotificationPacket){
 
 						  // make sure this notification is from a desired source
 
-						  if (channel.MetaData.Sources.Corporate == true &&  notification.MetaData.Sources.Corporate == true) || 
-						     (channel.MetaData.Sources.SocialMedia == true &&  notification.MetaData.Sources.SocialMedia == true) || 
+						  if (channel.MetaData.Sources.Corporate == true &&  notification.MetaData.Sources.Corporate == true) ||
+						     (channel.MetaData.Sources.SocialMedia == true &&  notification.MetaData.Sources.SocialMedia == true) ||
 						     (channel.MetaData.Sources.Aggregate == true &&  notification.MetaData.Sources.Aggregate == true){
 
 								channel.Channel <- notification
