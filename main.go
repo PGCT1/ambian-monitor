@@ -17,7 +17,7 @@ func main() {
 
 	CreateAmbianStream(AmbianStream{
 		Name:"World News",
-		TwitterKeywords:[]string{"obama","putin","snowden","russia","benghazi","isil","merkel","kerry","clinton","brussels","moscow","washington"},
+		TwitterKeywords:[]string{"syria","egypt","hamas","idf","palestine","gaza","putin","snowden","russia","benghazi","isil","merkel","kerry","clinton","brussels","moscow","washington"},
 	})
 
 	CreateAmbianStream(AmbianStream{

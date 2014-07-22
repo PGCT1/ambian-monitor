@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"encoding/json"
+	"time"
+	"sync"
 )
 
 // terms
@@ -29,14 +31,14 @@ const logLevel = "warn"
 const users = ""
 
 type TweetMedia struct{
-	Id string
+	Id int64
 	Url string
 	Type string
 }
 
 type Tweet struct{
-	Id string
-	UserId string
+	Id int64
+	UserId int64
 	Username string
 	Screenname string
 	UserImageUrl string
@@ -72,6 +74,8 @@ func TwitterStream(DataStream chan NotificationPacket){
 
 	rawStream := make(chan []byte)
 
+	freshnessCheckInit()
+
 	go startTwitterApiStream(rawStream,keywords)
 
 	for{
@@ -79,16 +83,28 @@ func TwitterStream(DataStream chan NotificationPacket){
 		select{
 
 			case rawTweetData := <- rawStream:
+
+				// new incoming tweet data, so first parse it
+
 				tweet,err := parseTweet(rawTweetData)
 
 				if err == nil {
 
-					notification,err := TweetNotification(tweet)
+					// next, check the id to make sure we haven't already
+					// sent it out recently.
 
-					fmt.Println(notification)
+					if isFresh(tweet) {
 
-					if err == nil {
-						DataStream <- notification
+						notification,err := TweetNotification(tweet)
+
+						if err == nil {
+							DataStream <- notification
+						}
+
+						fmt.Println("+ FRESH")
+
+					}else{
+						fmt.Println("- NOT FRESH")
 					}
 
 				}
@@ -182,6 +198,97 @@ func TweetNotification(tweet Tweet) (NotificationPacket,error){
 
 }
 
+// freshness - since twitter sends us retweets, but we show originals,
+// we need to check and make sure we aren't frequently pushing duplicates.
+// to do this, just use a simple algorithm: two lists, which are cleared
+// at 6 minute intervals (offset by 3 min). any time a new tweet comes in,
+// if it is in either list, reject it; if it's not in either list,
+// accept it and put it in both lists.
+
+// this is not thread-safe, but it is memory access safe, and race conditions
+// happen at most once per 6 minutes and have the side effect of possibly
+// incorrectly judging a tweet as unfresh when it is, in fact, fresh again.
+
+const cStaleListSize = 1000
+var staleListMutex *sync.RWMutex
+
+var staleIdsListA []int64
+var staleIdsListB []int64
+
+func freshnessCheckInit (){
+
+	staleListMutex = new(sync.RWMutex)
+
+	staleIdsListA = make([]int64,0,cStaleListSize)
+	staleIdsListB = make([]int64,0,cStaleListSize)
+
+	go func(){
+
+		staleList := false
+
+		for {
+
+			select {
+				case <- time.After(3*time.Minute):
+
+					staleListMutex.Lock()
+
+					if staleList {
+						staleIdsListA = staleIdsListA[:0]
+					}else{
+						staleIdsListB = staleIdsListB[:0]
+					}
+
+					staleListMutex.Unlock()
+
+					staleList = !staleList
+			}
+
+		}
+
+	}()
+
+}
+
+func isFresh(tweet Tweet) bool {
+
+	found := false
+
+	staleListMutex.RLock()
+
+	L1: for _,id := range(staleIdsListA) {
+		if id == tweet.Id {
+			found = true
+			break L1
+		}
+	}
+
+	if !found{
+		L2: for _,id := range(staleIdsListB) {
+			if id == tweet.Id {
+				found = true
+				break L2
+			}
+		}
+	}
+
+	staleListMutex.RUnlock()
+
+	if found {
+		return false
+	}
+
+	staleListMutex.Lock()
+
+	staleIdsListA = append(staleIdsListA,tweet.Id)
+	staleIdsListB = append(staleIdsListB,tweet.Id)
+
+	staleListMutex.Unlock()
+
+	return true
+
+}
+
 // parse the raw string into our Tweet object
 
 type rawTweetEntityHashtag struct {
@@ -189,7 +296,7 @@ type rawTweetEntityHashtag struct {
 }
 
 type rawTweetEntityMedia struct {
-	Id_str string
+	Id int64
 	Media_url string
 	Type string
 }
@@ -200,15 +307,17 @@ type rawTweetEntities struct {
 }
 
 type rawTweetUser struct {
-	Id_str string
+	Id int64
 	Name string
 	Screen_name string
 	Followers_count int
 	Profile_image_url string
 }
 
+
 type rawTweetInterestingFields struct {
-	Id_str string
+	Id int64
+	Retweeted_status *rawTweetInterestingFields
 	Text string
 	User rawTweetUser
 	Entities rawTweetEntities
@@ -218,13 +327,22 @@ func parseTweet(tw []byte) (Tweet,error) {
 
 	var tweet Tweet
 
-	var rawTweet rawTweetInterestingFields
+	rawTweet := new(rawTweetInterestingFields)
+	rawTweet.Retweeted_status = new(rawTweetInterestingFields)
 
 	err := json.Unmarshal(tw, &rawTweet)
 
 	if err == nil {
-		tweet.Id = rawTweet.Id_str
-		tweet.UserId = rawTweet.User.Id_str
+
+		// first, check and see if this is a retweet
+		// if so, just parse the original and ignore the rt
+
+		if rawTweet.Retweeted_status.Id > 0 {
+			rawTweet = rawTweet.Retweeted_status
+		}
+
+		tweet.Id = rawTweet.Id
+		tweet.UserId = rawTweet.User.Id
 		tweet.Username = rawTweet.User.Name
 		tweet.Screenname = rawTweet.User.Screen_name
 		tweet.UserImageUrl = rawTweet.User.Profile_image_url
@@ -237,7 +355,7 @@ func parseTweet(tw []byte) (Tweet,error) {
 
 		for i:=0;i<len(rawTweet.Entities.Media);i++ {
 			tweet.Media = append(tweet.Media,TweetMedia{
-				Id:rawTweet.Entities.Media[i].Id_str,
+				Id:rawTweet.Entities.Media[i].Id,
 				Url:rawTweet.Entities.Media[i].Media_url,
 				Type:rawTweet.Entities.Media[i].Type,
 			})
