@@ -173,7 +173,8 @@ func InitializeConnectionManager(){
 
 func monitorDataSources(DataStream chan NotificationPacket){
 
-	go TwitterStream(DataStream)
+	//go TwitterStream(DataStream)
+	go ArticleStream(DataStream)
 
 }
 

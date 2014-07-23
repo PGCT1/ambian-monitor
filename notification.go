@@ -16,6 +16,7 @@ type NotificationMetaData struct {
 const (
 	cNotificationTypeDefault = iota
 	cNotificationTypeTweet = iota
+	cNotificationTypeOfficialNews = iota
 )
 
 // packets
