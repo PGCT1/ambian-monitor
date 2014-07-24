@@ -120,6 +120,7 @@ func websocketConnectionHandler(ws *websocket.Conn) {
 	    		case notification := <- NotificationChannel:
 
 						ws.SetWriteDeadline(time.Now().Add(2 * time.Second))
+
 	    			err := ws.WriteJSON(notification)
 
 	    			if err != nil {
@@ -173,7 +174,7 @@ func InitializeConnectionManager(){
 
 func monitorDataSources(DataStream chan NotificationPacket){
 
-	//go TwitterStream(DataStream)
+	go TwitterStream(DataStream)
 	go ArticleStream(DataStream)
 
 }
