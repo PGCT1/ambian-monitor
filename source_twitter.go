@@ -101,10 +101,6 @@ func TwitterStream(DataStream chan NotificationPacket){
 							DataStream <- notification
 						}
 
-						fmt.Println("+ FRESH")
-
-					}else{
-						fmt.Println("- NOT FRESH")
 					}
 
 				}
