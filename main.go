@@ -4,6 +4,8 @@ import (
   "github.com/gorilla/websocket"
   "github.com/go-martini/martini"
   "github.com/martini-contrib/cors"
+  "github.com/pgct1/ambian-monitor/connection"
+  "github.com/pgct1/ambian-monitor/notification"
   "net/http"
 )
 
@@ -27,7 +29,12 @@ func main() {
 
 	AmbianStreams,_ = GetAmbianStreams()
 
-  InitializeConnectionManager()
+  DataStream := make(chan notification.Packet)
+
+  go connection.InitializeConnectionManager(SubscriptionPassword,DataStream)
+
+  go TwitterStream(DataStream)
+  go ArticleStream(DataStream)
 
   martiniServerSetup := martini.Classic()
 
@@ -51,7 +58,7 @@ func main() {
 			return
 		}
 
-		websocketConnectionHandler(ws)
+		connection.WebsocketConnectionHandler(ws)
 
 	})
 

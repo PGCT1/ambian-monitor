@@ -1,6 +1,7 @@
 package main
 
 import (
+  "github.com/pgct1/ambian-monitor/notification"
   rss "github.com/jteeuwen/go-pkg-rss"
   "fmt"
   "time"
@@ -35,7 +36,7 @@ type NewsArticleNotification struct {
   Content *rss.Item
 }
 
-var outputStream *chan NotificationPacket
+var outputStream *chan notification.Packet
 
 func PollFeed(newsSource NewsSource, timeout int) {
 
@@ -70,21 +71,21 @@ func itemHandler(feed *rss.Feed, ch *rss.Channel, newitems []*rss.Item, newsSour
 
       AmbianStreamIds := []int{1}
 
-      sources := Sources{
+      sources := notification.Sources{
         Corporate:true,
         SocialMedia:false,
         Aggregate:false,
       }
 
-      metaData := NotificationMetaData{AmbianStreamIds,sources}
+      metaData := notification.MetaData{AmbianStreamIds,sources}
 
-      notification := NotificationPacket{
-        Type:cNotificationTypeOfficialNews,
+      n := notification.Packet{
+        Type:notification.NotificationTypeOfficialNews,
         Content:string(jsonNewsItem),
         MetaData:metaData,
       }
 
-      *outputStream <- notification
+      *outputStream <- n
 
     }
 
@@ -92,7 +93,7 @@ func itemHandler(feed *rss.Feed, ch *rss.Channel, newitems []*rss.Item, newsSour
 
 }
 
-func ArticleStream(DataStream chan NotificationPacket) {
+func ArticleStream(DataStream chan notification.Packet) {
 
   outputStream = &DataStream
 

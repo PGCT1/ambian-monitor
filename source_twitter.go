@@ -1,9 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"github.com/araddon/httpstream"
 	"github.com/mrjones/oauth"
+	"github.com/pgct1/ambian-monitor/notification"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -52,7 +53,7 @@ type Tweet struct{
 
 var httpStreamClient* httpstream.Client
 
-func TwitterStream(DataStream chan NotificationPacket){
+func TwitterStream(DataStream chan notification.Packet){
 
 	// set corporate sources (why can't this just be a const declaration at the top... *sigh*)
 
@@ -95,10 +96,10 @@ func TwitterStream(DataStream chan NotificationPacket){
 
 					if isFresh(tweet) {
 
-						notification,err := TweetNotification(tweet)
+						n,err := TweetNotification(tweet)
 
 						if err == nil {
-							DataStream <- notification
+							DataStream <- n
 						}
 
 					}
@@ -127,12 +128,12 @@ func (e TweetNotificationError) Error() string {
 	return e.Message
 }
 
-func TweetNotification(tweet Tweet) (NotificationPacket,error){
+func TweetNotification(tweet Tweet) (notification.Packet,error){
 
-	var notification NotificationPacket
+	var n notification.Packet
 
 	if tweet.Followers < 2000 {
-		return notification,TweetNotificationError{"Uninteresting"}
+		return n,TweetNotificationError{"Uninteresting"}
 	}
 
 	// determine which streams to assign this notification to
@@ -180,17 +181,17 @@ func TweetNotification(tweet Tweet) (NotificationPacket,error){
 
 	}
 
-	sources := Sources{Corporate:isCorporateSource,SocialMedia:true,Aggregate:false}
+	sources := notification.Sources{Corporate:isCorporateSource,SocialMedia:true,Aggregate:false}
 
-	metaData := NotificationMetaData{AmbianStreamIds,sources}
+	metaData := notification.MetaData{AmbianStreamIds,sources}
 
 	jsonTweet,err := json.Marshal(tweet)
 
 	if err == nil {
-		notification = NotificationPacket{cNotificationTypeTweet,string(jsonTweet),metaData}
+		n = notification.Packet{notification.NotificationTypeTweet,string(jsonTweet),metaData}
 	}
 
-	return notification,err
+	return n,err
 
 }
 
