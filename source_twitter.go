@@ -42,6 +42,7 @@ type Tweet struct{
 	UserId int64
 	Username string
 	Screenname string
+	Verified bool
 	UserImageUrl string
 	Followers int
 	Text string
@@ -97,7 +98,7 @@ func TwitterStream(DataStream chan notification.Packet){
 					if isFresh(tweet) {
 
 						n,err := TweetNotification(tweet)
-
+						
 						if err == nil {
 							DataStream <- n
 						}
@@ -307,6 +308,7 @@ type rawTweetUser struct {
 	Id int64
 	Name string
 	Screen_name string
+	Verified bool
 	Followers_count int
 	Profile_image_url string
 }
@@ -342,6 +344,7 @@ func parseTweet(tw []byte) (Tweet,error) {
 		tweet.UserId = rawTweet.User.Id
 		tweet.Username = rawTweet.User.Name
 		tweet.Screenname = rawTweet.User.Screen_name
+		tweet.Verified = rawTweet.User.Verified
 		tweet.UserImageUrl = rawTweet.User.Profile_image_url
 		tweet.Followers = rawTweet.User.Followers_count
 		tweet.Text = rawTweet.Text
