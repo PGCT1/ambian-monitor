@@ -39,6 +39,7 @@ type TweetMedia struct{
 
 type Tweet struct{
 	Id int64
+	CreatedAt int64
 	UserId int64
 	Username string
 	Screenname string
@@ -95,10 +96,10 @@ func TwitterStream(DataStream chan notification.Packet){
 					// next, check the id to make sure we haven't already
 					// sent it out recently.
 
-					if isFresh(tweet) {
+					if isRecent(tweet) && hasntBeenSentRecently(tweet) {
 
 						n,err := TweetNotification(tweet)
-						
+
 						if err == nil {
 							DataStream <- n
 						}
@@ -248,7 +249,7 @@ func freshnessCheckInit (){
 
 }
 
-func isFresh(tweet Tweet) bool {
+func hasntBeenSentRecently(tweet Tweet) bool {
 
 	found := false
 
@@ -287,6 +288,10 @@ func isFresh(tweet Tweet) bool {
 
 }
 
+func isRecent(tweet Tweet) bool {
+	return tweet.CreatedAt > time.Now().Unix() - 24*60*60
+}
+
 // parse the raw string into our Tweet object
 
 type rawTweetEntityHashtag struct {
@@ -316,6 +321,7 @@ type rawTweetUser struct {
 
 type rawTweetInterestingFields struct {
 	Id int64
+	Created_at string
 	Retweeted_status *rawTweetInterestingFields
 	Text string
 	User rawTweetUser
@@ -340,7 +346,14 @@ func parseTweet(tw []byte) (Tweet,error) {
 			rawTweet = rawTweet.Retweeted_status
 		}
 
+		createdAt,err := time.Parse(time.RubyDate,rawTweet.Created_at)
+
+		if err != nil {
+			fmt.Println(err)
+		}
+
 		tweet.Id = rawTweet.Id
+		tweet.CreatedAt = createdAt.Unix()
 		tweet.UserId = rawTweet.User.Id
 		tweet.Username = rawTweet.User.Name
 		tweet.Screenname = rawTweet.User.Screen_name

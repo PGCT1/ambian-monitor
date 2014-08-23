@@ -62,6 +62,19 @@ func main() {
 
 	})
 
+  martiniServerSetup.Get("/currentTopHeadlines", func(res http.ResponseWriter) (int,string) {
+
+    json,err := CurrentNewsSourceTopHeadlinesAsJson()
+
+    if err != nil {
+      return 500,err.Error()
+    }else{
+      res.Header().Set("Content-Type", "application/json")
+      return 200,json
+    }
+
+  })
+
   martiniServerSetup.Use(martini.Static("web"))
 
   martiniServerSetup.Run()

@@ -6,6 +6,7 @@ import (
   "fmt"
   "time"
   "encoding/json"
+  "sync"
 )
 
 type NewsSource struct {
@@ -13,22 +14,22 @@ type NewsSource struct {
   RssUrl string
 }
 
-// careful! these names are displayed in the client, and also map to
+// careful! these names (keys) are displayed in the client, and also map to
 // icons included in the client for these sources
 
 var newsSources []NewsSource = []NewsSource{
-  {"Reuters","http://mf.feeds.reuters.com/reuters/UKTopNews"},
   {"New York Times","http://rss.nytimes.com/services/xml/rss/nyt/InternationalHome.xml"},
-  {"Russia Today","http://rt.com/rss/"},
+  {"BBC International","http://feeds.bbci.co.uk/news/rss.xml?edition=int"},
+  {"Reuters","http://mf.feeds.reuters.com/reuters/UKTopNews"},
+  {"Al Jazeera","http://www.aljazeera.com/Services/Rss/?PostingId=2007731105943979989"},
   {"Washington Post","http://feeds.washingtonpost.com/rss/rss_blogpost"},
   {"Vice","https://news.vice.com/rss"},
-  {"BBC International","http://feeds.bbci.co.uk/news/rss.xml?edition=int"},
-  {"Al Jazeera","http://www.aljazeera.com/Services/Rss/?PostingId=2007731105943979989"},
   {"The Guardian","http://www.theguardian.com/world/rss"},
-  {"The Telegraph","http://www.telegraph.co.uk/news/worldnews/rss"},
-  {"The Huffington Post","http://www.huffingtonpost.com/feeds/verticals/world/index.xml"},
+  {"Russia Today","http://rt.com/rss/"},
   {"The Wall Street Journal","http://online.wsj.com/xml/rss/3_7085.xml"},
+  {"The Huffington Post","http://www.huffingtonpost.com/feeds/verticals/world/index.xml"},
   {"The Independent","http://rss.feedsportal.com/c/266/f/3503/index.rss"},
+  {"The Telegraph","http://www.telegraph.co.uk/news/worldnews/rss"},
 }
 
 type NewsArticleNotification struct {
@@ -57,6 +58,8 @@ func PollFeed(newsSource NewsSource, timeout int) {
 func chanHandler(feed *rss.Feed, newchannels []*rss.Channel) {}
 
 func itemHandler(feed *rss.Feed, ch *rss.Channel, newitems []*rss.Item, newsSource NewsSource) {
+
+  updateNewsSourceTopHeadline(newsSource,ch.Items[0])
 
   for _,item := range(newitems) {
 
@@ -93,7 +96,41 @@ func itemHandler(feed *rss.Feed, ch *rss.Channel, newitems []*rss.Item, newsSour
 
 }
 
+var currentTopHeadlinesMutex *sync.RWMutex
+
+var currentTopHeadlines map[string]*rss.Item
+
+func updateNewsSourceTopHeadline(newsSource NewsSource, newsItem *rss.Item){
+
+  currentTopHeadlinesMutex.Lock()
+
+  currentTopHeadlines[newsSource.Name] = newsItem
+
+  currentTopHeadlinesMutex.Unlock()
+
+}
+
+func CurrentNewsSourceTopHeadlinesAsJson() (string,error) {
+
+  currentTopHeadlinesMutex.RLock()
+
+  defer currentTopHeadlinesMutex.RUnlock()
+
+  jsonTopHeadlines,err := json.Marshal(currentTopHeadlines)
+
+  if err != nil {
+    fmt.Println(err)
+    return "",err
+  }else{
+    return string(jsonTopHeadlines),err
+  }
+
+}
+
 func ArticleStream(DataStream chan notification.Packet) {
+
+  currentTopHeadlines = make(map[string]*rss.Item)
+  currentTopHeadlinesMutex = new(sync.RWMutex)
 
   outputStream = &DataStream
 
