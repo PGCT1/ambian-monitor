@@ -6,7 +6,10 @@ import (
   "github.com/martini-contrib/cors"
   "github.com/pgct1/ambian-monitor/connection"
   "github.com/pgct1/ambian-monitor/notification"
+  "github.com/pgct1/ambian-monitor/tweet"
   "net/http"
+  "encoding/json"
+  "fmt"
 )
 
 // globals
@@ -15,16 +18,46 @@ var AmbianStreams []AmbianStream	// active streams (world news, social & enterta
 
 func main() {
 
+  tweet.Test()
+
 	// just hardcode some database entries for now
 
 	CreateAmbianStream(AmbianStream{
 		Name:"World News",
-		TwitterKeywords:[]string{"syria","egypt","hamas","idf","palestine","gaza","putin","snowden","russia","benghazi","isil","merkel","kerry","clinton","brussels","moscow","washington"},
+		TwitterKeywords:[]string{"syria","egypt","hamas","idf","palestine","gaza","putin","snowden","russia","benghazi","isil","merkel","kerry","clinton","ferguson","brussels","moscow","washington"},
+    Filter:func(t tweet.Tweet, keywords []string, isCorporateSource bool) bool {
+
+      // make sure this isn't irrelevant shit like cam girl ads or something
+
+      sexyKeywords := []string{"webcam","girls","hawt","sex","camgirls","horny","cam","kinky"}
+
+      if !isCorporateSource {  // automatically trust major news sources
+
+        match := t.KeywordMatch(sexyKeywords)
+
+        if match == true {
+          jsonTweet,_ := json.Marshal(t)
+          fmt.Println(string(jsonTweet))
+          fmt.Println(",")
+          return false
+        }
+
+      }
+
+      // can't detect anything in our blacklists, so if we have a keyword
+      // match, let it through
+
+      return t.KeywordMatch(keywords)
+
+    },
 	})
 
 	CreateAmbianStream(AmbianStream{
 		Name:"Social & Entertainment",
 		TwitterKeywords:[]string{"harhar"},
+    Filter:func(t tweet.Tweet, keywords []string, isCorporateSource bool) bool {
+      return true
+    },
 	})
 
 	AmbianStreams,_ = GetAmbianStreams()
@@ -34,6 +67,7 @@ func main() {
   go connection.InitializeConnectionManager(SubscriptionPassword,DataStream)
 
   go TwitterStream(DataStream)
+
   go ArticleStream(DataStream)
 
   martiniServerSetup := martini.Classic()

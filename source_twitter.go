@@ -4,6 +4,7 @@ import (
 	"github.com/araddon/httpstream"
 	"github.com/mrjones/oauth"
 	"github.com/pgct1/ambian-monitor/notification"
+	"github.com/pgct1/ambian-monitor/tweet"
 	"fmt"
 	"log"
 	"os"
@@ -30,26 +31,6 @@ const accessTokenSecret = TwitterAccessTokenSecret
 
 const logLevel = "warn"
 const users = ""
-
-type TweetMedia struct{
-	Id int64
-	Url string
-	Type string
-}
-
-type Tweet struct{
-	Id int64
-	CreatedAt int64
-	UserId int64
-	Username string
-	Screenname string
-	Verified bool
-	UserImageUrl string
-	Followers int
-	Text string
-	Hashtags []string
-	Media []TweetMedia
-}
 
 // http stream
 
@@ -89,16 +70,16 @@ func TwitterStream(DataStream chan notification.Packet){
 
 				// new incoming tweet data, so first parse it
 
-				tweet,err := parseTweet(rawTweetData)
+				t,err := parseTweet(rawTweetData)
 
 				if err == nil {
 
 					// next, check the id to make sure we haven't already
 					// sent it out recently.
 
-					if isRecent(tweet) && hasntBeenSentRecently(tweet) {
+					if isRecent(t) && hasntBeenSentRecently(t) {
 
-						n,err := TweetNotification(tweet)
+						n,err := TweetNotification(t)
 
 						if err == nil {
 							DataStream <- n
@@ -130,49 +111,19 @@ func (e TweetNotificationError) Error() string {
 	return e.Message
 }
 
-func TweetNotification(tweet Tweet) (notification.Packet,error){
+func TweetNotification(t tweet.Tweet) (notification.Packet,error){
 
 	var n notification.Packet
 
-	if tweet.Followers < 2000 {
+	if t.Followers < 2000 {
 		return n,TweetNotificationError{"Uninteresting"}
-	}
-
-	// determine which streams to assign this notification to
-
-	AmbianStreamIds := make([]int,0,len(AmbianStreams))
-
-	for _,stream := range AmbianStreams {
-
-		// check for keyword matches
-
-		keywordSearch: for _,keyword := range stream.TwitterKeywords {
-
-			for _,hashtag := range tweet.Hashtags {
-
-				if keyword == hashtag {
-					AmbianStreamIds = append(AmbianStreamIds,stream.Id)
-					break keywordSearch
-				}
-
-			}
-
-			text := strings.ToLower(tweet.Text)
-
-			if strings.Contains(text, keyword) {
-				AmbianStreamIds = append(AmbianStreamIds,stream.Id)
-				break keywordSearch
-			}
-
-		}
-
 	}
 
 	// determine if this is a corporate source or not
 
 	isCorporateSource := false
 
-	screenname := strings.ToLower(tweet.Screenname)
+	screenname := strings.ToLower(t.Screenname)
 
 	determinedCorporateStatus: for _,corporateSource := range corporateSources {
 
@@ -183,11 +134,30 @@ func TweetNotification(tweet Tweet) (notification.Packet,error){
 
 	}
 
+	// determine which streams to assign this notification to
+
+	AmbianStreamIds := make([]int,0,len(AmbianStreams))
+
+	foundRelevantStream := false
+
+	for _,stream := range AmbianStreams {
+
+		if stream.Filter(t, stream.TwitterKeywords, isCorporateSource) {
+			foundRelevantStream = true
+			AmbianStreamIds = append(AmbianStreamIds,stream.Id)
+		}
+
+	}
+
+	if !foundRelevantStream {
+		return notification.Packet{},TweetNotificationError{Message:"Irrelevant"}
+	}
+
 	sources := notification.Sources{Corporate:isCorporateSource,SocialMedia:true,Aggregate:false}
 
 	metaData := notification.MetaData{AmbianStreamIds,sources}
 
-	jsonTweet,err := json.Marshal(tweet)
+	jsonTweet,err := json.Marshal(t)
 
 	if err == nil {
 		n = notification.Packet{notification.NotificationTypeTweet,string(jsonTweet),metaData}
@@ -249,14 +219,14 @@ func freshnessCheckInit (){
 
 }
 
-func hasntBeenSentRecently(tweet Tweet) bool {
+func hasntBeenSentRecently(t tweet.Tweet) bool {
 
 	found := false
 
 	staleListMutex.RLock()
 
 	L1: for _,id := range(staleIdsListA) {
-		if id == tweet.Id {
+		if id == t.Id {
 			found = true
 			break L1
 		}
@@ -264,7 +234,7 @@ func hasntBeenSentRecently(tweet Tweet) bool {
 
 	if !found{
 		L2: for _,id := range(staleIdsListB) {
-			if id == tweet.Id {
+			if id == t.Id {
 				found = true
 				break L2
 			}
@@ -279,8 +249,8 @@ func hasntBeenSentRecently(tweet Tweet) bool {
 
 	staleListMutex.Lock()
 
-	staleIdsListA = append(staleIdsListA,tweet.Id)
-	staleIdsListB = append(staleIdsListB,tweet.Id)
+	staleIdsListA = append(staleIdsListA,t.Id)
+	staleIdsListB = append(staleIdsListB,t.Id)
 
 	staleListMutex.Unlock()
 
@@ -288,8 +258,8 @@ func hasntBeenSentRecently(tweet Tweet) bool {
 
 }
 
-func isRecent(tweet Tweet) bool {
-	return tweet.CreatedAt > time.Now().Unix() - 24*60*60
+func isRecent(t tweet.Tweet) bool {
+	return t.CreatedAt > time.Now().Unix() - 24*60*60
 }
 
 // parse the raw string into our Tweet object
@@ -328,9 +298,9 @@ type rawTweetInterestingFields struct {
 	Entities rawTweetEntities
 }
 
-func parseTweet(tw []byte) (Tweet,error) {
+func parseTweet(tw []byte) (tweet.Tweet,error) {
 
-	var tweet Tweet
+	var t tweet.Tweet
 
 	rawTweet := new(rawTweetInterestingFields)
 	rawTweet.Retweeted_status = new(rawTweetInterestingFields)
@@ -352,22 +322,22 @@ func parseTweet(tw []byte) (Tweet,error) {
 			fmt.Println(err)
 		}
 
-		tweet.Id = rawTweet.Id
-		tweet.CreatedAt = createdAt.Unix()
-		tweet.UserId = rawTweet.User.Id
-		tweet.Username = rawTweet.User.Name
-		tweet.Screenname = rawTweet.User.Screen_name
-		tweet.Verified = rawTweet.User.Verified
-		tweet.UserImageUrl = rawTweet.User.Profile_image_url
-		tweet.Followers = rawTweet.User.Followers_count
-		tweet.Text = rawTweet.Text
+		t.Id = rawTweet.Id
+		t.CreatedAt = createdAt.Unix()
+		t.UserId = rawTweet.User.Id
+		t.Username = rawTweet.User.Name
+		t.Screenname = rawTweet.User.Screen_name
+		t.Verified = rawTweet.User.Verified
+		t.UserImageUrl = rawTweet.User.Profile_image_url
+		t.Followers = rawTweet.User.Followers_count
+		t.Text = rawTweet.Text
 
 		for i:=0;i<len(rawTweet.Entities.Hashtags);i++ {
-			tweet.Hashtags = append(tweet.Hashtags,rawTweet.Entities.Hashtags[i].Text)
+			t.Hashtags = append(t.Hashtags,rawTweet.Entities.Hashtags[i].Text)
 		}
 
 		for i:=0;i<len(rawTweet.Entities.Media);i++ {
-			tweet.Media = append(tweet.Media,TweetMedia{
+			t.Media = append(t.Media,tweet.TweetMedia{
 				Id:rawTweet.Entities.Media[i].Id,
 				Url:rawTweet.Entities.Media[i].Media_url,
 				Type:rawTweet.Entities.Media[i].Type,
@@ -378,7 +348,7 @@ func parseTweet(tw []byte) (Tweet,error) {
 		fmt.Println(err)
 	}
 
-	return tweet,err
+	return t,err
 
 }
 
