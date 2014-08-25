@@ -8,8 +8,6 @@ import (
   "github.com/pgct1/ambian-monitor/notification"
   "github.com/pgct1/ambian-monitor/tweet"
   "net/http"
-  "encoding/json"
-  "fmt"
 )
 
 // globals
