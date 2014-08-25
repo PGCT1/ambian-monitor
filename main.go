@@ -29,16 +29,27 @@ func main() {
 
       // make sure this isn't irrelevant shit like cam girl ads or something
 
-      sexyKeywords := []string{"webcam","girls","hawt","sex","camgirls","horny","cam","kinky"}
+      sexyKeywords := []string{"webcam","girls","ass","fuck","bitch","boob","boobs","tit","tits","luv","hawt","sex","camgirls","horny","cam","kinky"}
 
-      if !isCorporateSource {  // automatically trust major news sources
+      if !isCorporateSource {  // trust major news sources
 
         match := t.KeywordMatch(sexyKeywords)
 
         if match == true {
-          jsonTweet,_ := json.Marshal(t)
-          fmt.Println(string(jsonTweet))
-          fmt.Println(",")
+          return false
+        }
+
+      }
+
+      // other irrelevant stuff that appears a lot
+
+      irrelevant := []string{"concert","in-concert","1d","touchdown","football","home run","kardashian","kardashians","bieber","belieber","homerun"}
+
+      if !isCorporateSource {  // trust major news sources
+
+        match := t.KeywordMatch(irrelevant)
+
+        if match == true {
           return false
         }
 
