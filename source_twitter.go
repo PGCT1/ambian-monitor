@@ -18,7 +18,7 @@ import (
 // terms
 
 var keywords []string
-var corporateSources []string
+var corporateSources []string = []string{"bbc","bbcworld","bbcone","bbcnew","bbcbreaking","washingtonpost","reutersworld","reuters","ajelive","ajenglish","guardian","guardiannews","nytimes","rt_com","theonion","cracked","techcrunch","verge","thenextweb"}
 
 // access keys
 
@@ -32,15 +32,12 @@ const accessTokenSecret = TwitterAccessTokenSecret
 const logLevel = "warn"
 const users = ""
 
+
 // http stream
 
 var httpStreamClient* httpstream.Client
 
 func TwitterStream(DataStream chan notification.Packet){
-
-	// set corporate sources (why can't this just be a const declaration at the top... *sigh*)
-
-	corporateSources = []string{"bbc","bbcworld","bbcone","bbcnew","bbcbreaking","washingtonpost","reutersworld","reuters","ajelive","ajenglish","guardian","guardiannews","nytimes","rt_com","theonion","cracked","techcrunch","verge","thenextweb"}
 
 	// update our keyword list with the latest words from the global AmbianStreams
 

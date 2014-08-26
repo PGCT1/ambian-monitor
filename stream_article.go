@@ -17,20 +17,20 @@ type NewsSource struct {
 // careful! these names (keys) are displayed in the client, and also map to
 // icons included in the client for these sources
 
-var newsSources []NewsSource = []NewsSource{
-  {"New York Times","http://rss.nytimes.com/services/xml/rss/nyt/InternationalHome.xml"},
-  {"BBC International","http://feeds.bbci.co.uk/news/rss.xml?edition=int"},
-  {"Reuters","http://mf.feeds.reuters.com/reuters/UKTopNews"},
-  {"Al Jazeera","http://www.aljazeera.com/Services/Rss/?PostingId=2007731105943979989"},
-  {"Washington Post","http://feeds.washingtonpost.com/rss/rss_blogpost"},
-  {"Vice","https://news.vice.com/rss"},
-  {"The Guardian","http://www.theguardian.com/world/rss"},
-  {"Russia Today","http://rt.com/rss/"},
-  {"The Wall Street Journal","http://online.wsj.com/xml/rss/3_7085.xml"},
-  {"The Huffington Post","http://www.huffingtonpost.com/feeds/verticals/world/index.xml"},
-  {"The Independent","http://rss.feedsportal.com/c/266/f/3503/index.rss"},
-  {"The Telegraph","http://www.telegraph.co.uk/news/worldnews/rss"},
-}
+// var newsSources []NewsSource = []NewsSource{
+//   {"New York Times","http://rss.nytimes.com/services/xml/rss/nyt/InternationalHome.xml"},
+//   {"BBC International","http://feeds.bbci.co.uk/news/rss.xml?edition=int"},
+//   {"Reuters","http://mf.feeds.reuters.com/reuters/UKTopNews"},
+//   {"Al Jazeera","http://www.aljazeera.com/Services/Rss/?PostingId=2007731105943979989"},
+//   {"Washington Post","http://feeds.washingtonpost.com/rss/rss_blogpost"},
+//   {"Vice","https://news.vice.com/rss"},
+//   {"The Guardian","http://www.theguardian.com/world/rss"},
+//   {"Russia Today","http://rt.com/rss/"},
+//   {"The Wall Street Journal","http://online.wsj.com/xml/rss/3_7085.xml"},
+//   {"The Huffington Post","http://www.huffingtonpost.com/feeds/verticals/world/index.xml"},
+//   {"The Independent","http://rss.feedsportal.com/c/266/f/3503/index.rss"},
+//   {"The Telegraph","http://www.telegraph.co.uk/news/worldnews/rss"},
+// }
 
 type NewsArticleNotification struct {
   Source string
@@ -39,10 +39,10 @@ type NewsArticleNotification struct {
 
 var outputStream *chan notification.Packet
 
-func PollFeed(newsSource NewsSource, timeout int) {
+func PollFeed(newsSource NewsSource, timeout int, ambianStreamId int) {
 
 	feed := rss.New(timeout, true, chanHandler, func(feed *rss.Feed, ch *rss.Channel, newitems []*rss.Item){
-    itemHandler(feed, ch, newitems, newsSource)
+    itemHandler(feed, ch, newitems, newsSource, ambianStreamId)
   })
 
 	for {
@@ -57,9 +57,9 @@ func PollFeed(newsSource NewsSource, timeout int) {
 
 func chanHandler(feed *rss.Feed, newchannels []*rss.Channel) {}
 
-func itemHandler(feed *rss.Feed, ch *rss.Channel, newitems []*rss.Item, newsSource NewsSource) {
+func itemHandler(feed *rss.Feed, ch *rss.Channel, newitems []*rss.Item, newsSource NewsSource, ambianStreamId int) {
 
-  updateNewsSourceTopHeadline(newsSource,ch.Items[0])
+  updateNewsSourceTopHeadline(newsSource,ch.Items[0],ambianStreamId)
 
   for _,item := range(newitems) {
 
@@ -72,7 +72,7 @@ func itemHandler(feed *rss.Feed, ch *rss.Channel, newitems []*rss.Item, newsSour
 
     if err == nil {
 
-      AmbianStreamIds := []int{1}
+      AmbianStreamIds := []int{ambianStreamId}
 
       sources := notification.Sources{
         Corporate:true,
@@ -98,25 +98,27 @@ func itemHandler(feed *rss.Feed, ch *rss.Channel, newitems []*rss.Item, newsSour
 
 var currentTopHeadlinesMutex *sync.RWMutex
 
-var currentTopHeadlines map[string]*rss.Item
+var currentTopHeadlines map[int]map[string]*rss.Item
 
-func updateNewsSourceTopHeadline(newsSource NewsSource, newsItem *rss.Item){
+func updateNewsSourceTopHeadline(newsSource NewsSource, newsItem *rss.Item, ambianStreamId int){
 
   currentTopHeadlinesMutex.Lock()
 
-  currentTopHeadlines[newsSource.Name] = newsItem
+  currentTopHeadlines[ambianStreamId][newsSource.Name] = newsItem
 
   currentTopHeadlinesMutex.Unlock()
 
 }
 
-func CurrentNewsSourceTopHeadlinesAsJson() (string,error) {
+func CurrentNewsSourceTopHeadlinesAsJson(ambianStreamId int) (string,error) {
 
   currentTopHeadlinesMutex.RLock()
 
   defer currentTopHeadlinesMutex.RUnlock()
 
-  jsonTopHeadlines,err := json.Marshal(currentTopHeadlines)
+  fmt.Println(ambianStreamId)
+
+  jsonTopHeadlines,err := json.Marshal(currentTopHeadlines[ambianStreamId])
 
   if err != nil {
     fmt.Println(err)
@@ -129,15 +131,23 @@ func CurrentNewsSourceTopHeadlinesAsJson() (string,error) {
 
 func ArticleStream(DataStream chan notification.Packet) {
 
-  currentTopHeadlines = make(map[string]*rss.Item)
+  currentTopHeadlines = make(map[int]map[string]*rss.Item)
+
   currentTopHeadlinesMutex = new(sync.RWMutex)
 
   outputStream = &DataStream
 
-  for _,newsSource := range(newsSources) {
+  for _,stream := range AmbianStreams {
 
-    go PollFeed(newsSource,10)
+    currentTopHeadlines[stream.Id] = make(map[string]*rss.Item)
 
-    <-time.After(time.Duration((600 / len(newsSources))) * time.Second)
+    for _,newsSource := range(stream.NewsSources) {
+
+      go PollFeed(newsSource,10,stream.Id)
+
+      <-time.After(time.Duration((600 / len(stream.NewsSources))) * time.Second)
+    }
+
   }
+
 }

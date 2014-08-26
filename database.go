@@ -14,6 +14,7 @@ type AmbianStream struct {
 	// source metadata
 
 	TwitterKeywords []string
+	NewsSources []NewsSource
 	Filter func(tweet.Tweet, []string, bool)bool
 }
 

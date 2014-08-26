@@ -8,6 +8,8 @@ import (
   "github.com/pgct1/ambian-monitor/notification"
   "github.com/pgct1/ambian-monitor/tweet"
   "net/http"
+	"regexp"
+  "strconv"
 )
 
 // globals
@@ -23,6 +25,20 @@ func main() {
 	CreateAmbianStream(AmbianStream{
 		Name:"World News",
 		TwitterKeywords:[]string{"syria","egypt","hamas","idf","palestine","gaza","putin","snowden","russia","benghazi","isil","merkel","kerry","clinton","ferguson","brussels","moscow","washington"},
+    NewsSources:[]NewsSource{
+      {"New York Times","http://rss.nytimes.com/services/xml/rss/nyt/InternationalHome.xml"},
+      {"BBC International","http://feeds.bbci.co.uk/news/rss.xml?edition=int"},
+      {"Reuters","http://mf.feeds.reuters.com/reuters/UKTopNews"},
+      {"Al Jazeera","http://www.aljazeera.com/Services/Rss/?PostingId=2007731105943979989"},
+      {"Washington Post","http://feeds.washingtonpost.com/rss/rss_blogpost"},
+      {"Vice","https://news.vice.com/rss"},
+      {"The Guardian","http://www.theguardian.com/world/rss"},
+      {"Russia Today","http://rt.com/rss/"},
+      {"The Wall Street Journal","http://online.wsj.com/xml/rss/3_7085.xml"},
+      {"The Huffington Post","http://www.huffingtonpost.com/feeds/verticals/world/index.xml"},
+      {"The Independent","http://rss.feedsportal.com/c/266/f/3503/index.rss"},
+      {"The Telegraph","http://www.telegraph.co.uk/news/worldnews/rss"},
+    },
     Filter:func(t tweet.Tweet, keywords []string, isCorporateSource bool) bool {
 
       // make sure this isn't irrelevant shit like cam girl ads or something
@@ -41,7 +57,7 @@ func main() {
 
       // other irrelevant stuff that appears a lot
 
-      irrelevant := []string{"concert","in-concert","1d","touchdown","football","home run","kardashian","kardashians","bieber","belieber","homerun"}
+      irrelevant := []string{"concert","in-concert","1d","touchdown","football","home run","kardashian","kardashians","bieber","belieber","homerun","emmy","emmys","emmys2014"}
 
       if !isCorporateSource {  // trust major news sources
 
@@ -64,6 +80,7 @@ func main() {
 	CreateAmbianStream(AmbianStream{
 		Name:"Social & Entertainment",
 		TwitterKeywords:[]string{"harhar"},
+    NewsSources:[]NewsSource{},
     Filter:func(t tweet.Tweet, keywords []string, isCorporateSource bool) bool {
       return true
     },
@@ -105,9 +122,17 @@ func main() {
 
 	})
 
-  martiniServerSetup.Get("/currentTopHeadlines", func(res http.ResponseWriter) (int,string) {
+  martiniServerSetup.Get("/currentTopHeadlines/:ambianStreamId", func(res http.ResponseWriter, params martini.Params) (int,string) {
 
-    json,err := CurrentNewsSourceTopHeadlinesAsJson()
+    valid, _ := regexp.MatchString("^\\d+$", params["ambianStreamId"])
+
+    if !valid {
+      return 400,"Invalid stream ID."
+    }
+
+    ambianStreamId,_ := strconv.Atoi(params["ambianStreamId"])
+
+    json,err := CurrentNewsSourceTopHeadlinesAsJson(ambianStreamId)
 
     if err != nil {
       return 500,err.Error()
