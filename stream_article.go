@@ -14,24 +14,6 @@ type NewsSource struct {
   RssUrl string
 }
 
-// careful! these names (keys) are displayed in the client, and also map to
-// icons included in the client for these sources
-
-// var newsSources []NewsSource = []NewsSource{
-//   {"New York Times","http://rss.nytimes.com/services/xml/rss/nyt/InternationalHome.xml"},
-//   {"BBC International","http://feeds.bbci.co.uk/news/rss.xml?edition=int"},
-//   {"Reuters","http://mf.feeds.reuters.com/reuters/UKTopNews"},
-//   {"Al Jazeera","http://www.aljazeera.com/Services/Rss/?PostingId=2007731105943979989"},
-//   {"Washington Post","http://feeds.washingtonpost.com/rss/rss_blogpost"},
-//   {"Vice","https://news.vice.com/rss"},
-//   {"The Guardian","http://www.theguardian.com/world/rss"},
-//   {"Russia Today","http://rt.com/rss/"},
-//   {"The Wall Street Journal","http://online.wsj.com/xml/rss/3_7085.xml"},
-//   {"The Huffington Post","http://www.huffingtonpost.com/feeds/verticals/world/index.xml"},
-//   {"The Independent","http://rss.feedsportal.com/c/266/f/3503/index.rss"},
-//   {"The Telegraph","http://www.telegraph.co.uk/news/worldnews/rss"},
-// }
-
 type NewsArticleNotification struct {
   Source string
   Content *rss.Item

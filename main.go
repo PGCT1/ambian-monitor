@@ -26,6 +26,8 @@ func main() {
 		Name:"World News",
 		TwitterKeywords:[]string{"syria","egypt","hamas","idf","palestine","gaza","putin","snowden","russia","benghazi","isil","merkel","kerry","clinton","ferguson","brussels","moscow","washington"},
     NewsSources:[]NewsSource{
+      // careful! these names (keys) are displayed in the client, and also map to
+      // icons included in the client for these sources
       {"New York Times","http://rss.nytimes.com/services/xml/rss/nyt/InternationalHome.xml"},
       {"BBC International","http://feeds.bbci.co.uk/news/rss.xml?edition=int"},
       {"Reuters","http://mf.feeds.reuters.com/reuters/UKTopNews"},
