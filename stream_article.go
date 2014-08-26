@@ -111,7 +111,7 @@ func CurrentNewsSourceTopHeadlinesAsJson(ambianStreamId int) (string,error) {
 
 }
 
-func ArticleStream(DataStream chan notification.Packet) {
+func ArticleStream(DataStream chan notification.Packet, ambianStreams []AmbianStream) {
 
   currentTopHeadlines = make(map[int]map[string]*rss.Item)
 
@@ -119,7 +119,7 @@ func ArticleStream(DataStream chan notification.Packet) {
 
   outputStream = &DataStream
 
-  for _,stream := range AmbianStreams {
+  for _,stream := range ambianStreams {
 
     currentTopHeadlines[stream.Id] = make(map[string]*rss.Item)
 

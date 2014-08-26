@@ -36,27 +36,17 @@ func GetAmbianStreams() ([]AmbianStream,error) {
 
 func CreateAmbianStream(ambianStream AmbianStream) (int,error) {
 
-	// find highest Id and add one
-
-	highestFound := 0
-
 	for _,stream := range ambianStreams {
-		if stream.Id > highestFound {
-			highestFound = stream.Id
+		if stream.Id == ambianStream.Id {
+			panic("Duplicate stream IDs found.")
 		}
 	}
 
-	newId := highestFound + 1
+	ambianStreams = append(ambianStreams,ambianStream)
 
-	newAmbianStream := ambianStream
+	applyCaseRules(ambianStream.Id)
 
-	newAmbianStream.Id = newId
-
-	ambianStreams = append(ambianStreams,newAmbianStream)
-
-	applyCaseRules(newId)
-
-	return newId,nil
+	return ambianStream.Id,nil
 }
 
 func UpdateAmbianStream(ambianStream AmbianStream) error {

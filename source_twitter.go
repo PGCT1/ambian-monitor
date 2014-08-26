@@ -37,13 +37,13 @@ const users = ""
 
 var httpStreamClient* httpstream.Client
 
-func TwitterStream(DataStream chan notification.Packet){
+func TwitterStream(DataStream chan notification.Packet, ambianStreams []AmbianStream){
 
 	// update our keyword list with the latest words from the global AmbianStreams
 
 	keywords = make([]string,0,100)
 
-	for _,stream := range AmbianStreams {
+	for _,stream := range ambianStreams {
 
 		for _,keyword := range stream.TwitterKeywords {
 
@@ -76,7 +76,7 @@ func TwitterStream(DataStream chan notification.Packet){
 
 					if isRecent(t) && hasntBeenSentRecently(t) {
 
-						n,err := TweetNotification(t)
+						n,err := TweetNotification(t,ambianStreams)
 
 						if err == nil {
 							DataStream <- n
@@ -108,7 +108,7 @@ func (e TweetNotificationError) Error() string {
 	return e.Message
 }
 
-func TweetNotification(t tweet.Tweet) (notification.Packet,error){
+func TweetNotification(t tweet.Tweet, ambianStreams []AmbianStream) (notification.Packet,error){
 
 	var n notification.Packet
 
@@ -133,11 +133,11 @@ func TweetNotification(t tweet.Tweet) (notification.Packet,error){
 
 	// determine which streams to assign this notification to
 
-	AmbianStreamIds := make([]int,0,len(AmbianStreams))
+	AmbianStreamIds := make([]int,0,len(ambianStreams))
 
 	foundRelevantStream := false
 
-	for _,stream := range AmbianStreams {
+	for _,stream := range ambianStreams {
 
 		if stream.Filter(t, stream.TwitterKeywords, isCorporateSource) {
 			foundRelevantStream = true
