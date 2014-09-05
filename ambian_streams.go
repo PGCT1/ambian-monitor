@@ -1,15 +1,24 @@
 package main
 
-import (
-  "github.com/pgct1/ambian-monitor/tweet"
-)
+import "github.com/pgct1/ambian-monitor/tweet"
+
+type AmbianStream struct {
+  Id int
+  Name string
+
+  // source metadata
+
+  TwitterKeywords []string
+  NewsSources []NewsSource
+  Filter func(tweet.Tweet, []string, bool)bool
+}
 
 func InitializeAmbianStreams() []AmbianStream {
 
   CreateAmbianStream(AmbianStream{
     Id:1,
     Name:"World News",
-    TwitterKeywords:[]string{"syria","egypt","hamas","idf","palestine","gaza","putin","snowden","russia","benghazi","isil","merkel","kerry","clinton","ferguson","brussels","moscow","washington"},
+    TwitterKeywords:[]string{"syria","egypt","sanction","gdp","hamas","idf","palestine","gaza","putin","snowden","russia","benghazi","isis","merkel","kerry","clinton","brussels","moscow"},
     NewsSources:[]NewsSource{
       // careful! these names (keys) are displayed in the client, and also map to
       // icons included in the client for these sources

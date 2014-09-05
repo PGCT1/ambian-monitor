@@ -1,22 +1,8 @@
 package main
 
 import (
-	"github.com/pgct1/ambian-monitor/tweet"
 	"strings"
 )
-
-// for now, just an interface with no actual foreign database connection
-
-type AmbianStream struct {
-	Id int
-	Name string
-
-	// source metadata
-
-	TwitterKeywords []string
-	NewsSources []NewsSource
-	Filter func(tweet.Tweet, []string, bool)bool
-}
 
 // our 'database'
 
